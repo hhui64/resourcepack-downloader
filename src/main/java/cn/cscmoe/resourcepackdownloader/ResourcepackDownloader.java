@@ -12,7 +12,12 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.minecraftforge.fml.event.lifecycle.FMLDedicatedServerSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+
+import java.io.File;
+
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 
 @Mod(ResourcepackDownloader.MODID)
@@ -23,35 +28,43 @@ public class ResourcepackDownloader {
     public ResourcepackDownloader() {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
 
-        // Register the commonSetup method for modloading
         modEventBus.addListener(this::commonSetup);
 
-        // Register ourselves for server and other game events we are interested in
         MinecraftForge.EVENT_BUS.register(this);
 
-        // Register our mod's ForgeConfigSpec so that Forge can create and load the
-        // config file for us
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {
-        // Some common setup code
         LOGGER.info("HELLO FROM COMMON SETUP");
-
-        Config.repos.forEach((repo) -> LOGGER.info("Remote Resourcepack Repo >> {}", repo.toString()));
     }
 
-    @SubscribeEvent
-    public void onServerStarting(ServerStartingEvent event) {
-        LOGGER.info("HELLO from server starting");
+    @Mod.EventBusSubscriber(modid = MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.DEDICATED_SERVER)
+    public static class ServerModEvents {
+        @SubscribeEvent
+        public void onDedicatedServerSetup(FMLDedicatedServerSetupEvent event) {
+            LOGGER.warn("THIS MOD IS CLIENT ONLY, BUT IS NOW INSTALLED ON THE SERVER! PLEASE REMOVE IT.");
+        }
     }
 
     @Mod.EventBusSubscriber(modid = MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
     public static class ClientModEvents {
         @SubscribeEvent
         public static void onClientSetup(FMLClientSetupEvent event) {
-            LOGGER.info("HELLO FROM CLIENT SETUP");
-            LOGGER.info("MINECRAFT NAME >> {}", Minecraft.getInstance().getUser().getName());
+            ResourcepackDownloader.init();
+        }
+    }
+
+    public static void init() {
+        Minecraft minecraft = Minecraft.getInstance();
+
+        try {
+            String minecraftPath = minecraft.gameDirectory.getAbsolutePath();
+            LOGGER.info("Minecraft Game Directory >> {}", minecraftPath);
+            Config.remoteResourcepacks.forEach(
+                    (remoteResourcepacks) -> LOGGER.info("Remote Resourcepacks >> {}", remoteResourcepacks.toString()));
+        } catch (Exception e) {
+            LOGGER.error("Get Minecraft Game Directory Failed!");
         }
     }
 }
